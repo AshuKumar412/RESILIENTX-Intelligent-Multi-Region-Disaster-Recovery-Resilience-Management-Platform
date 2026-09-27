@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ResilientX - Multi-Region Pilot Light Disaster Recovery Root Orchestration Stack'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues: [production, staging, dr-test]
+  PrimaryRegion:
+    Type: String
+    Default: us-east-1
+    Description: Primary Active AWS Region
+  RecoveryRegion:
+    Type: String
+    Default: us-east-2
+    Description: Pilot Light Standby AWS Region
+  PrimaryTaskCount:
+    Type: Number
+    Default: 3
+    Description: Number of ECS Fargate tasks running in Primary region
+  RecoveryTaskCount:
+    Type: Number
+    Default: 0
+    Description: Number of ECS Fargate tasks running in Standby region (0 for Pilot Light)
+
+Resources:
+  # Primary Region Networking Stack
+  PrimaryNetworkingStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./networking.yaml
+      Parameters:
+        RegionName: !Ref PrimaryRegion
+        VpcCidr: '10.0.0.0/16'
+
+  # Recovery Region Networking Stack
+  RecoveryNetworkingStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./networking.yaml
+      Parameters:
+        RegionName: !Ref RecoveryRegion
+        VpcCidr: '10.1.0.0/16'
+
+  # Multi-Region Database Stack (DocumentDB Global Cluster / Aurora)
+  MultiRegionDatabaseStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./database.yaml
+      Parameters:
+        PrimaryRegion: !Ref PrimaryRegion
+        RecoveryRegion: !Ref RecoveryRegion
+
+  # Primary Compute Stack (Active: 3 Tasks)
+  PrimaryComputeStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./compute-ecs.yaml
+      Parameters:
+        RegionName: !Ref PrimaryRegion
+        DesiredTaskCount: !Ref PrimaryTaskCount
+
+  # Recovery Compute Stack (Pilot Light: 0 Tasks)
+  RecoveryComputeStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./compute-ecs.yaml
+      Parameters:
+        RegionName: !Ref RecoveryRegion
+        DesiredTaskCount: !Ref RecoveryTaskCount
+
+  # AWS ARC Traffic & Failover Routing Stack
+  TrafficRoutingStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./traffic-arc.yaml
+      Parameters:
+        PrimaryRegion: !Ref PrimaryRegion
+        RecoveryRegion: !Ref RecoveryRegion
+
+Outputs:
+  PlatformName:
+    Value: 'ResilientX Disaster Recovery Control Plane'
+  PrimaryRegion:
+    Value: !Ref PrimaryRegion
+  RecoveryRegion:
+    Value: !Ref RecoveryRegion
+  ArchitectureModel:
+    Value: 'AWS Multi-Region Pilot Light (Active/Standby)'

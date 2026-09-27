@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ResilientX - AWS Application Recovery Controller (ARC) Routing Controls & Route 53 DNS Switchover'
+
+Parameters:
+  PrimaryRegion:
+    Type: String
+    Default: us-east-1
+  RecoveryRegion:
+    Type: String
+    Default: us-east-2
+
+Resources:
+  # ARC Cluster
+  ArcCluster:
+    Type: AWS::Route53RecoveryControl::Cluster
+    Properties:
+      Name: resilientx-dr-routing-cluster
+
+  # ARC Control Panel
+  ArcControlPanel:
+    Type: AWS::Route53RecoveryControl::ControlPanel
+    Properties:
+      ClusterArn: !GetAtt ArcCluster.ClusterArn
+      Name: resilientx-region-routing-panel
+
+  # Primary Region Routing Control (Default: On)
+  PrimaryRoutingControl:
+    Type: AWS::Route53RecoveryControl::RoutingControl
+    Properties:
+      ClusterArn: !GetAtt ArcCluster.ClusterArn
+      ControlPanelArn: !GetAtt ArcControlPanel.ControlPanelArn
+      Name: us-east-1-ingress-switch
+
+  # Recovery Region Routing Control (Default: Off for Pilot Light)
+  RecoveryRoutingControl:
+    Type: AWS::Route53RecoveryControl::RoutingControl
+    Properties:
+      ClusterArn: !GetAtt ArcCluster.ClusterArn
+      ControlPanelArn: !GetAtt ArcControlPanel.ControlPanelArn
+      Name: us-east-2-ingress-switch
+
+Outputs:
+  ClusterArn:
+    Value: !GetAtt ArcCluster.ClusterArn
+  PrimaryControlArn:
+    Value: !GetAtt PrimaryRoutingControl.RoutingControlArn
+  RecoveryControlArn:
+    Value: !GetAtt RecoveryRoutingControl.RoutingControlArn

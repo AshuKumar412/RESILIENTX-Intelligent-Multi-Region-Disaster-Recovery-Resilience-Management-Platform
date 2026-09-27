@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ResilientX - CloudWatch Alarms & EventBridge Rules for Automated Disaster Detection'
+
+Parameters:
+  PrimaryRegion:
+    Type: String
+    Default: us-east-1
+
+Resources:
+  # Primary Region Health Alarm
+  PrimaryRegionHealthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: ResilientX-PrimaryRegion-Unhealthy
+      AlarmDescription: Triggered when primary ALB target group unhealthy host count > 0
+      MetricName: UnHealthyHostCount
+      Namespace: AWS/ApplicationELB
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+
+Outputs:
+  AlarmArn:
+    Value: !GetAtt PrimaryRegionHealthAlarm.Arn

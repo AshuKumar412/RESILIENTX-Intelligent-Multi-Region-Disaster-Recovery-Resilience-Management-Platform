@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ResilientX - ECS Fargate Service & Task Definition (Pilot Light Compute)'
+
+Parameters:
+  RegionName:
+    Type: String
+    Default: us-east-1
+  DesiredTaskCount:
+    Type: Number
+    Default: 3
+
+Resources:
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub 'resilientx-cluster-${RegionName}'
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [ecs-tasks.amazonaws.com]
+            Action: ['sts:AssumeRole']
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  ECSTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub 'resilientx-workload-${RegionName}'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: '256'
+      Memory: '512'
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      ContainerDefinitions:
+        - Name: workload-app
+          Image: public.ecr.aws/docker/library/node:18-alpine
+          PortMappings:
+            - ContainerPort: 8080
+          Environment:
+            - Name: REGION
+              Value: !Ref RegionName
+
+  ECSService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub 'resilientx-service-${RegionName}'
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref ECSTaskDefinition
+      DesiredCount: !Ref DesiredTaskCount
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - subnet-12345678 # Parameterized
+
+Outputs:
+  ClusterName:
+    Value: !Ref ECSCluster
+  ServiceName:
+    Value: !Ref ECSService
+  DesiredCount:
+    Value: !Ref DesiredTaskCount

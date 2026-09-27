@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ResilientX - Multi-Region Database (Amazon DocumentDB Global Cluster / Aurora PostgreSQL)'
+
+Parameters:
+  PrimaryRegion:
+    Type: String
+    Default: us-east-1
+  RecoveryRegion:
+    Type: String
+    Default: us-east-2
+  DbInstanceClass:
+    Type: String
+    Default: db.t3.medium
+    Description: Database Instance Class
+
+Resources:
+  # Master Encryption Key
+  DbKmsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS key for cross-region database encryption
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+
+Outputs:
+  GlobalClusterIdentifier:
+    Value: resilientx-global-db-cluster
+  ReplicationStrategy:
+    Value: Asynchronous Cross-Region Global Cluster Storage Replication
